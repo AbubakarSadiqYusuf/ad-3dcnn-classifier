@@ -5,3 +5,4 @@ pydicom
 matplotlib
 numpy
 Pillow
+dicom2nifti
