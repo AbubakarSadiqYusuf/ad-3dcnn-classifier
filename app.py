@@ -37,10 +37,10 @@ def add_blurred_background_from_logo(image_path):
 
 # Set config and background
 st.set_page_config(page_title='3D ResNet Alzheimer Classifier', layout='wide')
-add_blurred_background_from_logo("assets/ADpred_logo.jpg")
+add_blurred_background_from_logo("ADpred_logo.jpg")
 
 # Load and show logo
-logo_img = Image.open("assets/ADpred_logo.jpg")
+logo_img = Image.open("ADpred_logo.jpg")
 st.image(logo_img, width=150)
 
 st.title("🧠 3D CNN Alzheimer's Disease Classifier")
