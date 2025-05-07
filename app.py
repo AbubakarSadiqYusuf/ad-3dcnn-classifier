@@ -14,7 +14,7 @@ from PIL import Image, ImageFilter
 import zipfile
 from io import BytesIO
 import base64
-import subprocess
+import dicom2nifti
 
 from tensorflow.keras import layers, models
 
@@ -32,8 +32,8 @@ def add_blurred_background_from_logo(image_path):
             background-size: cover;
             background-attachment: fixed;
             backdrop-filter: blur(8px);
-        }}
             color: white;
+        }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -73,30 +73,18 @@ if zip_file:
             st.error("❌ No DICOM files found in the uploaded ZIP.")
             st.stop()
 
-        # Use dcm2niix to convert DICOM to NIfTI
-        dcm2niix_output = os.path.join(tmpdir, "nifti")
-        os.makedirs(dcm2niix_output, exist_ok=True)
-        conversion_result = subprocess.run([
-            "dcm2niix", "-z", "y", "-o", dcm2niix_output, tmpdir
-        ], capture_output=True, text=True)
-
-        if conversion_result.returncode != 0:
-            st.error(f"❌ DICOM to NIfTI conversion failed: {conversion_result.stderr}")
+        try:
+            zip_name = Path(zip_file.name).stem
+            nifti_filename = f"{zip_name}.nii.gz"
+            nifti_path = os.path.join("./", nifti_filename)
+            dicom2nifti.convert_directory(tmpdir, ".", compression=True, reorient=True)
+            img = nib.load(nifti_path)
+            volume = img.get_fdata().astype(np.float32)
+            volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
+            st.success(f"Converted DICOMs to NIfTI: {nifti_filename}")
+        except Exception as e:
+            st.error(f"❌ DICOM to NIfTI conversion failed: {e}")
             st.stop()
-
-        converted_files = glob(os.path.join(dcm2niix_output, "*.nii.gz"))
-        if not converted_files:
-            st.error("❌ No NIfTI file was created from the DICOM conversion.")
-            st.stop()
-            
-        nifti_path = converted_files[0]
-        img = nib.load(nifti_path)
-        volume = img.get_fdata().astype(np.float32)
-        volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
-
-        nifti_filename = f"{zip_name}.nii.gz"
-        nib.save(nib.Nifti1Image(volume, affine=np.eye(4)), nifti_path)
-        st.success(f"Converted DICOMs to NIfTI: {nifti_filename}")
 
         st.subheader("🧠 Sample MRI Slice")
         mid_slice = volume[:, :, volume.shape[2] // 2]
