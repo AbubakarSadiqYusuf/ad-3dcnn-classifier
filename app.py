@@ -29,25 +29,51 @@ This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzhe
 """)
 
 # --- Upload and Convert DICOM to NIfTI ---
-st.subheader("📤 Upload DICOM Directory")
-dicom_dir = st.file_uploader("Upload a .zip of DICOM files for one MRI scan", type="zip")
+st.subheader("📤 Upload DICOM or NIfTI ZIP")
+zip_file = st.file_uploader("Upload a .zip containing DICOM or NIfTI files for one MRI scan", type="zip")
 
-if dicom_dir:
+if zip_file:
     with tempfile.TemporaryDirectory() as tmpdir:
-        zip_path = os.path.join(tmpdir, "dicoms.zip")
+        zip_path = os.path.join(tmpdir, "upload.zip")
         with open(zip_path, "wb") as f:
-            f.write(dicom_dir.read())
+            f.write(zip_file.read())
         import zipfile
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(tmpdir)
 
         dicom_files = sorted(glob(os.path.join(tmpdir, "**", "*.dcm"), recursive=True))
-        slices = [pydicom.dcmread(f).pixel_array for f in dicom_files]
-        volume = np.stack(slices, axis=-1).astype(np.float32)
-        volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))  # normalize
-        nifti_img = nib.Nifti1Image(volume, affine=np.eye(4))
+        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii*"), recursive=True))
 
-        st.success(f"Converted {len(dicom_files)} DICOM slices into a 3D NIfTI volume")
+        if dicom_files:
+            slices = []
+            for f in dicom_files:
+                try:
+                    ds = pydicom.dcmread(f)
+                    slices.append(ds.pixel_array)
+                except Exception as e:
+                    st.warning(f"Skipping unreadable DICOM: {f} — {e}")
+
+            if not slices:
+                st.error("❌ All DICOM files were unreadable.")
+                st.stop()
+
+            volume = np.stack(slices, axis=-1).astype(np.float32)
+            volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
+            st.success(f"Converted {len(slices)} valid DICOM slices into a 3D volume")
+
+        elif nifti_files:
+            try:
+                nifti_path = nifti_files[0]
+                img = nib.load(nifti_path)
+                volume = img.get_fdata().astype(np.float32)
+                volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
+                st.success(f"Loaded NIfTI file: {os.path.basename(nifti_path)}")
+            except Exception as e:
+                st.error(f"❌ Failed to load NIfTI file: {e}")
+                st.stop()
+        else:
+            st.error("❌ No DICOM or NIfTI files were found in the uploaded ZIP.")
+            st.stop()
 
         # --- Display middle slice ---
         st.subheader("🧠 Sample MRI Slice")
@@ -59,9 +85,9 @@ if dicom_dir:
 
         # --- Resize for model ---
         volume_resized = tf.image.resize(volume, (128, 128))
-        volume_resized = tf.image.resize(tf.transpose(volume_resized, [2, 0, 1]), (128, 128))  # D x H x W
-        volume_input = tf.expand_dims(volume_resized, axis=0)  # (1, D, H, W)
-        volume_input = tf.expand_dims(volume_input, axis=-1)   # (1, D, H, W, 1)
+        volume_resized = tf.image.resize(tf.transpose(volume_resized, [2, 0, 1]), (128, 128))
+        volume_input = tf.expand_dims(volume_resized, axis=0)
+        volume_input = tf.expand_dims(volume_input, axis=-1)
 
         # --- Load 3D ResNet50 (placeholder model logic) ---
         def build_3d_resnet(input_shape=(None, 128, 128, 1), num_classes=4):
@@ -75,9 +101,7 @@ if dicom_dir:
             return model
 
         model = build_3d_resnet()
-        # model.load_weights("3d_resnet_ad.h5")  # Load your trained weights here if available
 
-        # --- Predict ---
         preds = model.predict(volume_input)
         stages = ['Normal Cognitive (NC)', 'Early MCI (EMCI)', 'Late MCI (LMCI)', "Alzheimer's Disease (AD)"]
         pred_stage = stages[np.argmax(preds)]
