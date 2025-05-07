@@ -42,7 +42,7 @@ if zip_file:
             zip_ref.extractall(tmpdir)
 
         dicom_files = sorted(glob(os.path.join(tmpdir, "**", "*.dcm"), recursive=True))
-        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii*"), recursive=True))
+        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii*",".nii.gz"), recursive=True))
 
         if dicom_files:
             slices = []
