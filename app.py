@@ -67,7 +67,7 @@ elif nifti_files:
             except Exception as e:
                 st.error(f"❌ Failed to load NIfTI file: {e}")
                 st.stop()
-            else:
+                
             st.error("❌ No DICOM or NIfTI files were found in the uploaded ZIP.")
             st.stop()
 
