@@ -57,17 +57,7 @@ if zip_file:
         except Exception as e:
             st.error(f"❌ Failed to load NIfTI file: {e}")
             st.stop()
-elif nifti_files:
-            try:
-                nifti_path = nifti_files[0]
-                img = nib.load(nifti_path)
-                volume = img.get_fdata().astype(np.float32)
-                volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
-                st.success(f"Loaded NIfTI file: {os.path.basename(nifti_path)}")
-            except Exception as e:
-                st.error(f"❌ Failed to load NIfTI file: {e}")
-                st.stop()
-                
+
             st.error("❌ No DICOM or NIfTI files were found in the uploaded ZIP.")
             st.stop()
 
