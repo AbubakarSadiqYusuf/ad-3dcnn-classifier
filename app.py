@@ -42,26 +42,12 @@ if zip_file:
             zip_ref.extractall(tmpdir)
 
         dicom_files = sorted(glob(os.path.join(tmpdir, "**", "*.dcm"), recursive=True))
-        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii*","), recursive=True))+ glob(os.path.join(tmpdir, "**", "*.nii.gz"), recursive=True))
+        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii.gz"), recursive=True))
 
         if dicom_files:
-            slices = []
-            for f in dicom_files:
-                try:
-                    ds = pydicom.dcmread(f)
-                    slices.append(ds.pixel_array)
-                except Exception as e:
-                    st.warning(f"Skipping unreadable DICOM: {f} — {e}")
-
-            if not slices:
-                st.error("❌ All DICOM files were unreadable.")
-                st.stop()
-
-            volume = np.stack(slices, axis=-1).astype(np.float32)
-            volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
-            st.success(f"Converted {len(slices)} valid DICOM slices into a 3D volume")
-
-        elif nifti_files:
+    st.error("❌ DICOM files are not accepted. Please upload a ZIP containing only a .nii.gz file.")
+    st.stop()
+elif nifti_files:
             try:
                 nifti_path = nifti_files[0]
                 img = nib.load(nifti_path)
