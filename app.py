@@ -14,6 +14,7 @@ from PIL import Image, ImageFilter
 import zipfile
 from io import BytesIO
 import base64
+import subprocess
 
 from tensorflow.keras import layers, models
 
@@ -71,8 +72,6 @@ if zip_file:
         if not dicom_files:
             st.error("❌ No DICOM files found in the uploaded ZIP.")
             st.stop()
-
-       import subprocess
 
         # Use dcm2niix to convert DICOM to NIfTI
         dcm2niix_output = os.path.join(tmpdir, "nifti")
