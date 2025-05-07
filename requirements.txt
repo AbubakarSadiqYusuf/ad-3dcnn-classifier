@@ -1,0 +1,7 @@
+streamlit
+tensorflow
+nibabel
+pydicom
+matplotlib
+numpy
+Pillow
