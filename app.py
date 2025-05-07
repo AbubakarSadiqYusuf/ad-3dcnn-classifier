@@ -11,12 +11,31 @@ import matplotlib.pyplot as plt
 from glob import glob
 from pathlib import Path
 from PIL import Image
+import zipfile
 
 from tensorflow.keras import layers, models
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title='3D ResNet Alzheimer Classifier', layout='wide')
-st.image("https://www.google.com/imgres?q=alzheimer%27s%20disease%20images&imgurl=https%3A%2F%2Fsolmeglas.com%2Fwp-content%2Fuploads%2F2019%2F07%2Falzheimers-disease-presenilin-protein-1.jpg&imgrefurl=https%3A%2F%2Fsolmeglas.com%2Fall-the-myths-you-need-to-know-about-alzheimers-disease%2F&docid=FrroVnosQZvEWM&tbnid=D4wTwAysnsePJM&vet=12ahUKEwiK2YOtr5CNAxX6RUEAHUV_BE4QM3oECEAQAA..i&w=616&h=347&hcb=2&ved=2ahUKEwiK2YOtr5CNAxX6RUEAHUV_BE4QM3oECEAQAA.png", width=150)
+
+# Background Image via CSS
+def add_bg_image():
+    with open("/mnt/data/ADpred_logo.jpg", "rb") as img_file:
+        import base64
+        bg_bytes = base64.b64encode(img_file.read()).decode()
+        st.markdown(f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/jpeg;base64,{bg_bytes}");
+                background-size: cover;
+                background-attachment: fixed;
+                backdrop-filter: blur(8px);
+            }}
+            </style>
+        """, unsafe_allow_html=True)
+
+add_bg_image()
+st.image("/mnt/data/ADpred_logo.jpg", width=150)
 st.title("🧠 3D CNN Alzheimer's Disease Classifier")
 st.markdown("""
 This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzheimer's Disease (AD) from MRI brain scans.
@@ -28,38 +47,46 @@ This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzhe
 - 🔴 Alzheimer's Disease (AD)
 """)
 
-# --- Upload NIfTI ZIP (.nii or .nii.gz) ---
-st.subheader("📤 Upload NIfTI ZIP")
-zip_file = st.file_uploader("Upload a .zip containing a NIfTI file (.nii or .nii.gz) for one MRI scan", type="zip")
+# --- Upload DICOM ZIP ---
+st.subheader("📤 Upload DICOM ZIP")
+zip_file = st.file_uploader("Upload a .zip containing DICOM files for one MRI scan", type="zip")
 
 if zip_file:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "upload.zip")
         with open(zip_path, "wb") as f:
             f.write(zip_file.read())
-        import zipfile
+
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(tmpdir)
 
-        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii"), recursive=True) +
-                             glob(os.path.join(tmpdir, "**", "*.nii.gz"), recursive=True))
+        dicom_files = sorted(glob(os.path.join(tmpdir, "**", "*.dcm"), recursive=True))
 
-        if not nifti_files:
-            st.error("❌ No valid NIfTI (.nii or .nii.gz) files were found in the uploaded ZIP.")
+        if not dicom_files:
+            st.error("❌ No DICOM files found in the uploaded ZIP.")
             st.stop()
 
-        try:
-            nifti_path = nifti_files[0]
-            img = nib.load(nifti_path)
-            volume = img.get_fdata().astype(np.float32)
-            volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
-            st.success(f"Loaded NIfTI file: {os.path.basename(nifti_path)}")
-        except Exception as e:
-            st.error(f"❌ Failed to load NIfTI file: {e}")
+        slices = []
+        for f in dicom_files:
+            try:
+                ds = pydicom.dcmread(f)
+                slices.append(ds.pixel_array)
+            except Exception as e:
+                st.warning(f"Skipped unreadable DICOM: {f} — {e}")
+
+        if not slices:
+            st.error("❌ All DICOM files failed to load.")
             st.stop()
 
-            st.error("❌ No DICOM or NIfTI files were found in the uploaded ZIP.")
-            st.stop()
+        volume = np.stack(slices, axis=-1).astype(np.float32)
+        volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
+
+        # Save NIfTI
+        zip_name = Path(zip_file.name).stem
+        nifti_filename = f"{zip_name}.nii.gz"
+        nifti_path = os.path.join("/mnt/data", nifti_filename)
+        nib.save(nib.Nifti1Image(volume, affine=np.eye(4)), nifti_path)
+        st.success(f"Converted DICOMs to NIfTI: {nifti_filename}")
 
         # --- Display middle slice ---
         st.subheader("🧠 Sample MRI Slice")
