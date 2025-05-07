@@ -16,7 +16,7 @@ from tensorflow.keras import layers, models
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title='3D ResNet Alzheimer Classifier', layout='wide')
-st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Alzheimer%27s_Disease_Logo.svg/1200px-Alzheimer%27s_Disease_Logo.svg.png", width=150)
+st.image("https://www.google.com/imgres?q=alzheimer%27s%20disease%20images&imgurl=https%3A%2F%2Fsolmeglas.com%2Fwp-content%2Fuploads%2F2019%2F07%2Falzheimers-disease-presenilin-protein-1.jpg&imgrefurl=https%3A%2F%2Fsolmeglas.com%2Fall-the-myths-you-need-to-know-about-alzheimers-disease%2F&docid=FrroVnosQZvEWM&tbnid=D4wTwAysnsePJM&vet=12ahUKEwiK2YOtr5CNAxX6RUEAHUV_BE4QM3oECEAQAA..i&w=616&h=347&hcb=2&ved=2ahUKEwiK2YOtr5CNAxX6RUEAHUV_BE4QM3oECEAQAA.png", width=150)
 st.title("🧠 3D CNN Alzheimer's Disease Classifier")
 st.markdown("""
 This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzheimer's Disease (AD) from MRI brain scans.
@@ -28,9 +28,9 @@ This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzhe
 - 🔴 Alzheimer's Disease (AD)
 """)
 
-# --- Upload and Convert DICOM to NIfTI ---
-st.subheader("📤 Upload DICOM or NIfTI ZIP")
-zip_file = st.file_uploader("Upload a .zip containing DICOM or NIfTI files for one MRI scan", type="zip")
+# --- Upload NIfTI ZIP (.nii or .nii.gz) ---
+st.subheader("📤 Upload NIfTI ZIP")
+zip_file = st.file_uploader("Upload a .zip containing a NIfTI file (.nii or .nii.gz) for one MRI scan", type="zip")
 
 if zip_file:
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -41,12 +41,22 @@ if zip_file:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(tmpdir)
 
-        dicom_files = sorted(glob(os.path.join(tmpdir, "**", "*.dcm"), recursive=True))
-        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii.gz"), recursive=True))
+        nifti_files = sorted(glob(os.path.join(tmpdir, "**", "*.nii"), recursive=True) +
+                             glob(os.path.join(tmpdir, "**", "*.nii.gz"), recursive=True))
 
-        if dicom_files:
-    st.error("❌ DICOM files are not accepted. Please upload a ZIP containing only a .nii.gz file.")
-    st.stop()
+        if not nifti_files:
+            st.error("❌ No valid NIfTI (.nii or .nii.gz) files were found in the uploaded ZIP.")
+            st.stop()
+
+        try:
+            nifti_path = nifti_files[0]
+            img = nib.load(nifti_path)
+            volume = img.get_fdata().astype(np.float32)
+            volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
+            st.success(f"Loaded NIfTI file: {os.path.basename(nifti_path)}")
+        except Exception as e:
+            st.error(f"❌ Failed to load NIfTI file: {e}")
+            st.stop()
 elif nifti_files:
             try:
                 nifti_path = nifti_files[0]
