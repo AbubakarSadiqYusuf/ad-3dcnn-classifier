@@ -77,7 +77,7 @@ if zip_file:
             zip_name = Path(zip_file.name).stem
             nifti_filename = f"{zip_name}.nii.gz"
             nifti_path = os.path.join("./", nifti_filename)
-            dicom2nifti.convert_dicom.dicom_series_to_nifti(tmdir, nifti_path)
+            dicom2nifti.convert_dicom.dicom_series_to_nifti(tmpdir, nifti_path)
             img = nib.load(nifti_path)
             volume = img.get_fdata().astype(np.float32)
             volume = (volume - np.min(volume)) / (np.max(volume) - np.min(volume))
