@@ -19,8 +19,11 @@ from tensorflow.keras import layers, models
 st.set_page_config(page_title='3D ResNet Alzheimer Classifier', layout='wide')
 
 # Background Image via CSS
+
+logo_img = Image.open("ADpred_logo.jpg")
+
 def add_bg_image():
-    with open("/mnt/data/ADpred_logo.jpg", "rb") as img_file:
+    with open(logo_img, "rb") as img_file:
         import base64
         bg_bytes = base64.b64encode(img_file.read()).decode()
         st.markdown(f"""
@@ -35,7 +38,7 @@ def add_bg_image():
         """, unsafe_allow_html=True)
 
 add_bg_image()
-st.image("/mnt/data/ADpred_logo.jpg", width=150)
+st.image(logo_img, width=150)
 st.title("🧠 3D CNN Alzheimer's Disease Classifier")
 st.markdown("""
 This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzheimer's Disease (AD) from MRI brain scans.
