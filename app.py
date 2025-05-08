@@ -135,8 +135,15 @@ if zip_file:
 
         # --- GradCAM++ Visualization ---
         st.subheader("🔍 Interpretability: GradCAM++ (3D)")
+
+        # Dynamically find last Conv3D layer
+        for layer in reversed(model.layers):
+            if isinstance(layer, tf.keras.layers.Conv3D):
+                target_layer = layer.name
+                break
+
         def compute_gradcam_3d(model, input_volume, target_class_idx):
-            grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(index=-3).output, model.output])
+            grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(target_layer).output, model.output])
             with tf.GradientTape() as tape:
                 conv_outputs, predictions = grad_model(input_volume)
                 loss = predictions[:, target_class_idx]
@@ -150,13 +157,16 @@ if zip_file:
             heatmap /= np.max(heatmap) + 1e-8
             return heatmap
 
-        heatmap = compute_gradcam_3d(model, volume_input, np.argmax(preds))
-        gradcam_slice = heatmap[heatmap.shape[0] // 2]
-        fig, ax = plt.subplots()
-        ax.imshow(gradcam_slice, cmap='inferno')
-        ax.set_title("GradCAM++ - Mid Slice")
-        ax.axis('off')
-        st.pyplot(fig)
+        try:
+            heatmap = compute_gradcam_3d(model, volume_input, np.argmax(preds))
+            gradcam_slice = heatmap[heatmap.shape[0] // 2]
+            fig, ax = plt.subplots()
+            ax.imshow(gradcam_slice, cmap='inferno')
+            ax.set_title("GradCAM++ - Mid Slice")
+            ax.axis('off')
+            st.pyplot(fig)
+        except Exception as e:
+            st.error(f"⚠️ GradCAM++ failed: {e}")
 
         st.markdown("---")
         st.caption("Built for clinical decision support and Alzheimer's research.")
