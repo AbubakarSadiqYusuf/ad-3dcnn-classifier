@@ -133,40 +133,40 @@ if zip_file:
         st.write("Confidence Scores:")
         st.bar_chart({stages[i]: float(preds[0][i]) for i in range(4)})
 
-        # --- GradCAM++ Visualization ---
-        st.subheader("🔍 Interpretability: GradCAM++ (3D)")
+        # # --- GradCAM++ Visualization ---
+        # st.subheader("🔍 Interpretability: GradCAM++ (3D)")
 
-        # Dynamically find last Conv3D layer
-        for layer in reversed(model.layers):
-            if isinstance(layer, tf.keras.layers.Conv3D):
-                target_layer = layer.name
-                break
+        # # Dynamically find last Conv3D layer
+        # for layer in reversed(model.layers):
+        #     if isinstance(layer, tf.keras.layers.Conv3D):
+        #         target_layer = layer.name
+        #         break
 
-        def compute_gradcam_3d(model, input_volume, target_class_idx):
-            grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(target_layer).output, model.output])
-            with tf.GradientTape() as tape:
-                conv_outputs, predictions = grad_model([input_volume])
-                loss = predictions[:, target_class_idx]
-            grads = tape.gradient(loss, conv_outputs)[0]
-            pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2, 3))
-            conv_outputs = conv_outputs[0]
-            for i in range(conv_outputs.shape[-1]):
-                conv_outputs[:, :, :, i] *= pooled_grads[i]
-            heatmap = tf.reduce_mean(conv_outputs, axis=-1).numpy()
-            heatmap = np.maximum(heatmap, 0)
-            heatmap /= np.max(heatmap) + 1e-8
-            return heatmap
+        # def compute_gradcam_3d(model, input_volume, target_class_idx):
+        #     grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(target_layer).output, model.output])
+        #     with tf.GradientTape() as tape:
+        #         conv_outputs, predictions = grad_model([input_volume])
+        #         loss = predictions[:, target_class_idx]
+        #     grads = tape.gradient(loss, conv_outputs)[0]
+        #     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2, 3))
+        #     conv_outputs = conv_outputs[0]
+        #     for i in range(conv_outputs.shape[-1]):
+        #         conv_outputs[:, :, :, i] *= pooled_grads[i]
+        #     heatmap = tf.reduce_mean(conv_outputs, axis=-1).numpy()
+        #     heatmap = np.maximum(heatmap, 0)
+        #     heatmap /= np.max(heatmap) + 1e-8
+        #     return heatmap
 
-        try:
-            heatmap = compute_gradcam_3d(model, volume_input, np.argmax(preds))
-            gradcam_slice = heatmap[heatmap.shape[0] // 2]
-            fig, ax = plt.subplots()
-            ax.imshow(gradcam_slice, cmap='inferno')
-            ax.set_title("GradCAM++ - Mid Slice")
-            ax.axis('off')
-            st.pyplot(fig)
-        except Exception as e:
-            st.error(f"⚠️ GradCAM++ failed: {e}")
+        # try:
+        #     heatmap = compute_gradcam_3d(model, volume_input, np.argmax(preds))
+        #     gradcam_slice = heatmap[heatmap.shape[0] // 2]
+        #     fig, ax = plt.subplots()
+        #     ax.imshow(gradcam_slice, cmap='inferno')
+        #     ax.set_title("GradCAM++ - Mid Slice")
+        #     ax.axis('off')
+        #     st.pyplot(fig)
+        # except Exception as e:
+        #     st.error(f"⚠️ GradCAM++ failed: {e}")
 
         st.markdown("---")
         st.caption("Built for clinical decision support and Alzheimer's research.")
