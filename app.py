@@ -115,16 +115,16 @@ if zip_file:
             return models.Model(inputs, outputs)
 
         # --- Load or Create Model ---
-        if os.path.exists("3d_resnet_alzheimer.h5"):
-            model = tf.keras.models.load_model("3d_resnet_alzheimer.h5")
+        if os.path.exists("3d_resnet_alzheimer.keras"):
+            model = tf.keras.models.load_model("3d_resnet_alzheimer.keras")
             st.info("✅ Loaded saved model.")
         else:
             model = build_3d_resnet()
-            model.save("3d_resnet_alzheimer.h5")
+            model.save("3d_resnet_alzheimer.keras")
             st.success("💾 Trained & saved new model.")
 
         # --- Predict ---
-        preds = model.predict(volume_input)
+        preds = model.predict([volume_input])
         stages = ['Normal Cognitive (NC)', 'Early MCI (EMCI)', 'Late MCI (LMCI)', "Alzheimer's Disease (AD)"]
         pred_stage = stages[np.argmax(preds)]
 
@@ -145,7 +145,7 @@ if zip_file:
         def compute_gradcam_3d(model, input_volume, target_class_idx):
             grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(target_layer).output, model.output])
             with tf.GradientTape() as tape:
-                conv_outputs, predictions = grad_model(input_volume)
+                conv_outputs, predictions = grad_model([input_volume])
                 loss = predictions[:, target_class_idx]
             grads = tape.gradient(loss, conv_outputs)[0]
             pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2, 3))
