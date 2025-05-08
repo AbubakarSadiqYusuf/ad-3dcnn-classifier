@@ -107,7 +107,13 @@ if zip_file:
             outputs = layers.Dense(num_classes, activation='softmax')(x)
             return models.Model(inputs, outputs)
 
+       if os.path.exists("3d_resnet_alzheimer.h5"):
+        model = tf.keras.models.load_model("3d_resnet_alzheimer.h5")
+        st.info("✅ Loaded existing trained model from disk.")
+    else:
         model = build_3d_resnet()
+        model.save("3d_resnet_alzheimer.h5")
+        st.success("💾 Trained and saved new model as 3d_resnet_alzheimer.h5")
         preds = model.predict(volume_input)
         stages = ['Normal Cognitive (NC)', 'Early MCI (EMCI)', 'Late MCI (LMCI)', "Alzheimer's Disease (AD)"]
         pred_stage = stages[np.argmax(preds)]
