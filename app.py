@@ -86,12 +86,25 @@ if zip_file:
             st.error(f"❌ DICOM to NIfTI conversion failed: {e}")
             st.stop()
 
-        st.subheader("🧠 Sample MRI Slice")
-        mid_slice = volume[:, :, volume.shape[2] // 2]
-        fig, ax = plt.subplots()
-        ax.imshow(mid_slice, cmap="gray")
-        ax.axis('off')
-        st.pyplot(fig)
+        st.subheader("🧠 MRI Multi-View Mid-Slices")
+axial = volume[:, :, volume.shape[2] // 2]
+coronal = volume[:, volume.shape[1] // 2, :]
+sagittal = volume[volume.shape[0] // 2, :, :]
+
+fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+axs[0].imshow(axial.T, cmap="gray", origin="lower")
+axs[0].set_title("Axial View")
+axs[0].axis("off")
+
+axs[1].imshow(coronal.T, cmap="gray", origin="lower")
+axs[1].set_title("Coronal View")
+axs[1].axis("off")
+
+axs[2].imshow(sagittal.T, cmap="gray", origin="lower")
+axs[2].set_title("Sagittal View")
+axs[2].axis("off")
+
+st.pyplot(fig)
 
         volume_resized = tf.image.resize(volume, (128, 128))
         volume_resized = tf.image.resize(tf.transpose(volume_resized, [2, 0, 1]), (128, 128))
@@ -114,9 +127,11 @@ if zip_file:
                 model = build_3d_resnet()
                 model.save("3d_resnet_alzheimer.h5")
                 st.success("💾 Trained and saved new model as 3d_resnet_alzheimer.h5")
-                preds = model.predict(volume_input)
-                stages = ['Normal Cognitive (NC)', 'Early MCI (EMCI)', 'Late MCI (LMCI)', "Alzheimer's Disease (AD)"]
-                pred_stage = stages[np.argmax(preds)]
+
+            # ✅ Always run prediction
+            preds = model.predict(volume_input)
+            stages = ['Normal Cognitive (NC)', 'Early MCI (EMCI)', 'Late MCI (LMCI)', "Alzheimer's Disease (AD)"]
+            pred_stage = stages[np.argmax(preds)]
 
         st.subheader("🧪 Prediction Result")
         st.markdown(f"### 🧠 Model Prediction: **{pred_stage}**")
