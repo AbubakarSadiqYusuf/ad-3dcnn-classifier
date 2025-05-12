@@ -40,7 +40,8 @@ add_blurred_background_from_logo("ADpred_logo.jpg")
 st.image("ADpred_logo.jpg", width=150)
 
 st.title("🧠 3D CNN Alzheimer's Disease Classifier")
-st.markdown("""
+st.sidebar.image("ADpred_logo.jpg", width=150)
+st.sidebar.markdown("""
 This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzheimer's Disease (AD) from MRI brain scans.
 
 **Stages Predicted:**
