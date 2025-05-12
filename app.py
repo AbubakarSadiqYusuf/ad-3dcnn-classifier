@@ -50,9 +50,9 @@ This tool uses a **3D ResNet50 CNN** to classify the progression stages of Alzhe
 - 🔴 Alzheimer's Disease (AD)
 """)
 
-# --- Upload ZIP of DICOMs ---
-st.subheader("📤 Upload DICOM ZIP")
-zip_file = st.file_uploader("Upload a .zip containing DICOM files", type="zip")
+# --- Sidebar for Upload ---
+st.sidebar.header("📤 Upload Section")
+zip_file = st.sidebar.file_uploader("Upload a .zip containing DICOM files", type="zip")
 
 if zip_file:
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -115,12 +115,13 @@ if zip_file:
             return models.Model(inputs, outputs)
 
         # --- Load or Create Model ---
-        if os.path.exists("3d_resnet_alzheimer.keras"):
-            model = tf.keras.models.load_model("3d_resnet_alzheimer.keras")
+        model_path = os.path.join(".", "3d_resnet_alzheimer.keras")
+        if os.path.exists(model_path):
+            model = tf.keras.models.load_model(model_path)
             st.info("✅ Loaded saved model.")
         else:
             model = build_3d_resnet()
-            model.save("3d_resnet_alzheimer.keras")
+            model.save(model_path)
             st.success("💾 Trained & saved new model.")
 
         # --- Predict ---
@@ -133,40 +134,41 @@ if zip_file:
         st.write("Confidence Scores:")
         st.bar_chart({stages[i]: float(preds[0][i]) for i in range(4)})
 
-        # # --- GradCAM++ Visualization ---
-        # st.subheader("🔍 Interpretability: GradCAM++ (3D)")
+        # --- GradCAM++ Visualization ---
+        st.subheader("🔍 Interpretability: GradCAM++ (3D)")
+        import tensorflow.keras.backend as K
 
-        # # Dynamically find last Conv3D layer
-        # for layer in reversed(model.layers):
-        #     if isinstance(layer, tf.keras.layers.Conv3D):
-        #         target_layer = layer.name
-        #         break
+        # Dynamically find last Conv3D layer
+        for layer in reversed(model.layers):
+            if isinstance(layer, tf.keras.layers.Conv3D):
+                target_layer = layer.name
+                break
 
-        # def compute_gradcam_3d(model, input_volume, target_class_idx):
-        #     grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(target_layer).output, model.output])
-        #     with tf.GradientTape() as tape:
-        #         conv_outputs, predictions = grad_model([input_volume])
-        #         loss = predictions[:, target_class_idx]
-        #     grads = tape.gradient(loss, conv_outputs)[0]
-        #     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2, 3))
-        #     conv_outputs = conv_outputs[0]
-        #     for i in range(conv_outputs.shape[-1]):
-        #         conv_outputs[:, :, :, i] *= pooled_grads[i]
-        #     heatmap = tf.reduce_mean(conv_outputs, axis=-1).numpy()
-        #     heatmap = np.maximum(heatmap, 0)
-        #     heatmap /= np.max(heatmap) + 1e-8
-        #     return heatmap
+        def compute_gradcam_3d(model, input_volume, target_class_idx):
+            grad_model = tf.keras.models.Model([model.inputs], [model.get_layer(target_layer).output, model.output])
+            with tf.GradientTape() as tape:
+                conv_outputs, predictions = grad_model([input_volume])
+                loss = predictions[:, target_class_idx]
+            grads = tape.gradient(loss, conv_outputs)[0]
+            pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2, 3))
+            conv_outputs = conv_outputs[0]
+            for i in range(conv_outputs.shape[-1]):
+                conv_outputs[:, :, :, i] *= pooled_grads[i]
+            heatmap = tf.reduce_mean(conv_outputs, axis=-1).numpy()
+            heatmap = np.maximum(heatmap, 0)
+            heatmap /= np.max(heatmap) + 1e-8
+            return heatmap
 
-        # try:
-        #     heatmap = compute_gradcam_3d(model, volume_input, np.argmax(preds))
-        #     gradcam_slice = heatmap[heatmap.shape[0] // 2]
-        #     fig, ax = plt.subplots()
-        #     ax.imshow(gradcam_slice, cmap='inferno')
-        #     ax.set_title("GradCAM++ - Mid Slice")
-        #     ax.axis('off')
-        #     st.pyplot(fig)
-        # except Exception as e:
-        #     st.error(f"⚠️ GradCAM++ failed: {e}")
+        try:
+            heatmap = compute_gradcam_3d(model, volume_input, np.argmax(preds))
+            gradcam_slice = heatmap[heatmap.shape[0] // 2]
+            fig, ax = plt.subplots()
+            ax.imshow(gradcam_slice, cmap='inferno')
+            ax.set_title("GradCAM++ - Mid Slice")
+            ax.axis('off')
+            st.pyplot(fig)
+        except Exception as e:
+            st.error(f"⚠️ GradCAM++ failed: {e}")
 
         st.markdown("---")
         st.caption("Built for clinical decision support and Alzheimer's research.")
